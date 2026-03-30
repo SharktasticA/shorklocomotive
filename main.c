@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 
@@ -27,6 +28,10 @@
 
 
 
+static int BOBBING = 1;
+static int BOBBING_CHANCE = 10;
+static int BOBBING_COOLDOWN = 0;
+static int BOBBING_DIR = 0;
 static struct termios OLD_TERMIOS;
 static int RAW_MODE_ENABLED = 0;
 static int ROW_SKIP = 0;
@@ -72,7 +77,19 @@ void printFrame(int frame)
 
     clearScreen();
 
-    for (int i = 0; i < ROW_SKIP; i++)
+    if (BOBBING && !BOBBING_COOLDOWN & TERM_SIZE.ws_row > SHORK_HEIGHT + 2)
+    {
+        if (rand() % BOBBING_CHANCE == 0)
+        {
+            BOBBING_COOLDOWN = SHORK_WIDTH;
+            if (BOBBING_DIR == 0)
+                BOBBING_DIR = (rand() % 3) - 1;
+            else
+                BOBBING_DIR = 0;
+        }
+    }
+
+    for (int i = 0; i < ROW_SKIP + BOBBING_DIR; i++)
         printf("\n");
 
     for (int i = 0; i < SHORK_HEIGHT; i++)
@@ -118,9 +135,11 @@ int main(int argc, char *argv[])
     }
 
     printf("\033[?25l");
+    srand(time(NULL));
     for (int i = 1; i <= TERM_SIZE.ws_col + SHORK_WIDTH; i++)
     {
         printFrame(i);
+        if (BOBBING_COOLDOWN > 0) BOBBING_COOLDOWN--;
         usleep(30000);
     }
 
