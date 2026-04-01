@@ -17,9 +17,41 @@
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+
+
+
+#define COL_BAK_BLACK           "40"
+#define COL_BAK_BLUE            "44"
+#define COL_BAK_CYAN            "46"
+#define COL_BAK_GREEN           "42"
+#define COL_BAK_GREY            "40"
+#define COL_BAK_MAGENTA         "45"
+#define COL_BAK_RED             "41"
+#define COL_BAK_WHITE           "47"
+#define COL_BAK_YELLOW          "43"
+#define COL_FOR_BLACK           "0;30"
+#define COL_FOR_BLUE            "0;34"
+#define COL_FOR_BOLD_BLUE       "1;34"
+#define COL_FOR_BOLD_CYAN       "1;36"
+#define COL_FOR_BOLD_GREEN      "1;32"
+#define COL_FOR_BOLD_MAGENTA    "1;35"
+#define COL_FOR_BOLD_RED        "1;31"
+#define COL_FOR_BOLD_WHITE      "1;37"
+#define COL_FOR_BOLD_YELLOW     "1;33"
+#define COL_FOR_CYAN            "0;36"
+#define COL_FOR_GREEN           "0;32"
+#define COL_FOR_GREY            "1;30"
+#define COL_FOR_MAGENTA         "0;35"
+#define COL_FOR_RED             "0;31"
+#define COL_FOR_WHITE           "0;37"
+#define COL_FOR_YELLOW          "0;33"
+#define COL_BAK_RESET           "49"
+#define COL_FOR_RESET           "39"
+#define COL_RESET               "0"
 
 
 
@@ -32,6 +64,7 @@ static int BOBBING = 1;
 static int BOBBING_CHANCE = 10;
 static int BOBBING_COOLDOWN = 0;
 static int BOBBING_DIR = 0;
+static int BOBBING_DIR_PREV = -1;
 static struct termios OLD_TERMIOS;
 static int RAW_MODE_ENABLED = 0;
 static int ROW_SKIP = 0;
@@ -75,23 +108,54 @@ void printFrame(int frame)
 {
     int padding = -(SHORK_WIDTH - frame);
 
-    clearScreen();
-
-    if (BOBBING && !BOBBING_COOLDOWN & TERM_SIZE.ws_row > SHORK_HEIGHT + 2)
+    if (BOBBING)
     {
-        if (rand() % BOBBING_CHANCE == 0)
+        if (BOBBING_COOLDOWN == 0)
         {
-            BOBBING_COOLDOWN = SHORK_WIDTH;
-            if (BOBBING_DIR == 0)
-                BOBBING_DIR = (rand() % 3) - 1;
-            else
-                BOBBING_DIR = 0;
+            if (rand() % BOBBING_CHANCE == (BOBBING_CHANCE / 2))
+            {
+                BOBBING_COOLDOWN = SHORK_WIDTH;
+                if (BOBBING_DIR == 0)
+                    BOBBING_DIR = (rand() % 2 == 0) ? -1 : 1;
+                else
+                {
+                    BOBBING_DIR = 0;
+                }
+            }
+        }
+        else BOBBING_COOLDOWN--;
+    }
+
+    // What row to start printing at
+    int row = ROW_SKIP + BOBBING_DIR;
+
+    if (BOBBING)
+    {
+        if (BOBBING_DIR_PREV == -1) BOBBING_DIR_PREV = row;
+
+        // If bobbing direction changed, clear the previous start/end row that may still have
+        // residual ASCII art on
+        if (row != BOBBING_DIR_PREV)
+        {
+            int clearTop = BOBBING_DIR_PREV;
+            if (clearTop < 1) clearTop = 1;
+            int clearBottom = BOBBING_DIR_PREV + SHORK_HEIGHT - 1;
+            if (clearBottom > TERM_SIZE.ws_row) clearBottom = TERM_SIZE.ws_row;
+
+            for (int r = clearTop; r <= clearBottom; r++)
+            {
+                printf("\033[%d;1H", r);
+                for (int c = 0; c < TERM_SIZE.ws_col; c++) printf(" ");
+            }
+            
+            BOBBING_DIR_PREV = row;
         }
     }
 
-    for (int i = 0; i < ROW_SKIP + BOBBING_DIR; i++)
-        printf("\n");
+    // Move cursor down to starting row
+    printf("\033[%d;1H", row);
 
+    // Print art
     for (int i = 0; i < SHORK_HEIGHT; i++)
     {
         int visibleStart = padding;
@@ -114,33 +178,70 @@ void printFrame(int frame)
     }
 }
 
-void showCursor(void)
+/**
+ * Makes the terminal cursor visible again, resets the terminal's colours and clears the screen
+ * upon exiting.
+ */
+void onExit(void)
 {
     printf("\033[?25h");
+    printf("\033[%sm", COL_RESET);
+    clearScreen();
 }
 
 
 
 int main(int argc, char *argv[])
 {
-    atexit(showCursor);
-
     TERM_SIZE = getTerminalSize();
-
-    if (TERM_SIZE.ws_row > SHORK_HEIGHT)
+    if (TERM_SIZE.ws_col < SHORK_WIDTH || TERM_SIZE.ws_row < SHORK_HEIGHT + 4)
     {
-        int test = (TERM_SIZE.ws_row - SHORK_HEIGHT) / 2;
-        if (test > 1) test--;
-        ROW_SKIP = test;
+        printf("ERROR: terminal size too small (must be %dx%d or more)\n", SHORK_WIDTH, SHORK_HEIGHT + 4);
+        return 1;
     }
 
-    printf("\033[?25l");
+    int update = 40000;
+
+    for (int i = 1; i < argc; i++)
+    {
+        if ((strcmp(argv[i], "-u") == 0) || (strcmp(argv[i], "--update") == 0))
+        {
+            if (i + 1 >= argc)
+            {
+                printf("ERROR: update value is missing\n");
+                return 1;
+            }
+
+            char *endptr = NULL;
+            long val = strtol(argv[i + 1], &endptr, 10);
+
+            if (*endptr != '\0' || val <= 0)
+            {
+                printf("ERROR: update value must be a positive integer\n");
+                return 1;
+            }
+
+            update = (int)val;
+            printf("%d\n", update);
+            continue;
+        }
+    }
+
+    atexit(onExit);
+
+    if (TERM_SIZE.ws_row > SHORK_HEIGHT)
+        ROW_SKIP = 1 + ((TERM_SIZE.ws_row - SHORK_HEIGHT) / 2);
+    if (TERM_SIZE.ws_row < SHORK_HEIGHT + 2)
+        BOBBING = 0;
+
     srand(time(NULL));
+    printf("\033[?25l\033[%s;%sm", COL_FOR_BOLD_WHITE, COL_BAK_BLUE);
+    clearScreen();
+
     for (int i = 1; i <= TERM_SIZE.ws_col + SHORK_WIDTH; i++)
     {
         printFrame(i);
-        if (BOBBING_COOLDOWN > 0) BOBBING_COOLDOWN--;
-        usleep(30000);
+        usleep(update);
     }
 
     return 0;
