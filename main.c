@@ -65,6 +65,8 @@ static int BOBBING_CHANCE = 10;
 static int BOBBING_COOLDOWN = 0;
 static int BOBBING_DIR = 0;
 static int BOBBING_DIR_PREV = -1;
+static char *COL_BAK = COL_BAK_BLUE;
+static char *COL_FOR = COL_FOR_BOLD_WHITE;
 static struct termios OLD_TERMIOS;
 static int RAW_MODE_ENABLED = 0;
 static int ROW_SKIP = 0;
@@ -88,6 +90,64 @@ static struct winsize TERM_SIZE;
 void clearScreen(void)
 {
     printf("\033[H\033[J");
+}
+
+/**
+ * Adds new lines to a given string based on the requested line width.
+ * @param buffer Input string
+ * @param width Characters per line
+ * @param indent Indent to include after newly inserted new line
+ * @return Number of lines in the string
+ */
+int formatNewLines(char *buffer, int width, char *indent)
+{
+    if (!buffer || width < 1) return 0;
+
+    size_t bufferStrLen = strlen(buffer);
+    size_t indentLen = indent ? strlen(indent) : 0;
+    int lines = 1;
+    int lastSpace = -1;
+    int widthCount = 1;
+
+    for (int i = 0; i < bufferStrLen; i++)
+    {
+        if (buffer[i] == '\033')
+        {
+            while (i < bufferStrLen && buffer[i] != 'm') i++;
+            if (i >= bufferStrLen) break;
+            continue; 
+        }
+        
+        if (buffer[i] == ' ') lastSpace = i;
+        else if (buffer[i] == '\n')
+        {
+            lines++;
+            widthCount = 0;
+            continue;
+        }
+
+        if (widthCount == width)
+        {
+            if (lastSpace != -1)
+            {
+                buffer[lastSpace] = '\n';
+                lines++;
+
+                if (indent && indentLen > 0)
+                {
+                    memmove(buffer + lastSpace + 1 + indentLen, buffer + lastSpace + 1, bufferStrLen - lastSpace);
+                    memcpy(buffer + lastSpace + 1, indent, indentLen);
+                    bufferStrLen += indentLen;
+                    if (lastSpace <= i) i += indentLen;
+                }
+            }
+            widthCount = i - lastSpace;
+        }
+
+        widthCount++;
+    }
+
+    return lines;
 }
 
 /**
@@ -189,22 +249,50 @@ void onExit(void)
     clearScreen();
 }
 
+void showHelp(void)
+{
+    char desc[140] = "A cute, shark-themed take on Toyoda Masashi's sl command that kindly pokes fun at making typos when trying to type ls.\n";
+    formatNewLines(desc, TERM_SIZE.ws_col, NULL);
+    printf("%s\n", desc);
+
+    char usage[40] = "Usage: sl [OPTIONS]\n\n";
+    formatNewLines(usage, TERM_SIZE.ws_col, NULL);
+    printf("%s", usage);
+
+    char options[350] = "Options:\n-h, --help       Displays help information and exits\n-nb, --no-bob    Disables bobbing (moving the shark up and down)\n-nc, --no-col    Disables all coloured output\n-u, --update     Custom value for update speed (how quick the shark moves) (be must positive whole number)\n\n";
+    formatNewLines(options, TERM_SIZE.ws_col, "                 ");
+    printf("%s", options);
+
+    char notes[80];
+    snprintf(notes, 80, "Notes:\nThe host terminal size must be %dx%d before starting.\n", SHORK_WIDTH, SHORK_HEIGHT + 4);
+    formatNewLines(notes, TERM_SIZE.ws_col, NULL);
+    printf("%s", notes);
+}
+
 
 
 int main(int argc, char *argv[])
 {
     TERM_SIZE = getTerminalSize();
-    if (TERM_SIZE.ws_col < SHORK_WIDTH || TERM_SIZE.ws_row < SHORK_HEIGHT + 4)
-    {
-        printf("ERROR: terminal size too small (must be %dx%d or more)\n", SHORK_WIDTH, SHORK_HEIGHT + 4);
-        return 1;
-    }
-
     int update = 40000;
 
     for (int i = 1; i < argc; i++)
     {
-        if ((strcmp(argv[i], "-u") == 0) || (strcmp(argv[i], "--update") == 0))
+        if ((strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0))
+        {
+            showHelp();
+            return 0;
+        }
+        else if ((strcmp(argv[i], "-nb") == 0) || (strcmp(argv[i], "--no-bob") == 0))
+        {
+            BOBBING = 0;
+        }
+        else if ((strcmp(argv[i], "-nc") == 0) || (strcmp(argv[i], "--no-col") == 0))
+        {
+            COL_BAK = COL_BAK_RESET;
+            COL_FOR = COL_FOR_RESET;
+        }
+        else if ((strcmp(argv[i], "-u") == 0) || (strcmp(argv[i], "--update") == 0))
         {
             if (i + 1 >= argc)
             {
@@ -217,7 +305,7 @@ int main(int argc, char *argv[])
 
             if (*endptr != '\0' || val <= 0)
             {
-                printf("ERROR: update value must be a positive integer\n");
+                printf("ERROR: update value must be a positive whole number\n");
                 return 1;
             }
 
@@ -227,6 +315,14 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (TERM_SIZE.ws_col < SHORK_WIDTH || TERM_SIZE.ws_row < SHORK_HEIGHT + 4)
+    {
+        printf("ERROR: terminal size too small (must be %dx%d or more)\n", SHORK_WIDTH, SHORK_HEIGHT + 4);
+        return 1;
+    }
+
+
+
     atexit(onExit);
 
     if (TERM_SIZE.ws_row > SHORK_HEIGHT)
@@ -235,7 +331,7 @@ int main(int argc, char *argv[])
         BOBBING = 0;
 
     srand(time(NULL));
-    printf("\033[?25l\033[%s;%sm", COL_FOR_BOLD_WHITE, COL_BAK_BLUE);
+    printf("\033[?25l\033[%s;%sm", COL_FOR, COL_BAK);
     clearScreen();
 
     for (int i = 1; i <= TERM_SIZE.ws_col + SHORK_WIDTH; i++)

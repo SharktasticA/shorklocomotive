@@ -31,3 +31,10 @@ Run `make install` to install to `/usr/bin` (you may need `sudo` if not installi
 ## Running
 
 Simply run `sl`.
+
+### Arguments
+
+* `-h`, `--help`: Shows help information and exits
+* `-nb`, `--no-bob`: Disables bobbing (moving the shark up and down)
+* `-nc`, `--no-col`: Disables all coloured output
+* `-u`, `--update`: Custom value for update speed (how quick the shark moves) (be must positive whole number)
