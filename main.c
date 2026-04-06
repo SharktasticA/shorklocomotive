@@ -1,6 +1,6 @@
 /*
     ######################################################
-    ##          SHORK UTILITY - SHORKLOCOMOTIVE         ##
+    ##          SHORKTAINMENT - SHORKLOCOMOTIVE         ##
     ######################################################
     ## A cute SHORK-themed sl implementation that       ##
     ## "cures your bad habit of mistyping" ls. A homage ##
