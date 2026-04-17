@@ -15,6 +15,7 @@
 
 
 #include <sys/ioctl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -249,6 +250,14 @@ void onExit(void)
     clearScreen();
 }
 
+/**
+ * Used to handle exiting controllably if SIGINT is received (Ctrl+C).
+ */
+void onSigInt(int sig)
+{
+    exit(0);
+}
+
 void showHelp(void)
 {
     char desc[140] = "A cute, shark-themed take on Toyoda Masashi's sl command that kindly pokes fun at making typos when trying to type ls.\n";
@@ -324,6 +333,7 @@ int main(int argc, char *argv[])
 
 
     atexit(onExit);
+    signal(SIGINT, onSigInt);
 
     if (TERM_SIZE.ws_row > SHORK_HEIGHT)
         ROW_SKIP = 1 + ((TERM_SIZE.ws_row - SHORK_HEIGHT) / 2);
