@@ -1,4 +1,4 @@
-# shorklocomotive
+# SHORKLOCOMOTIVE
 
 My cute, shark-based take on [Toyoda Masashi's sl](https://github.com/mtoyoda/sl). The original sl is a command that kindly pokes fun at making typos when trying to type `ls`, cures "your bad habit of mistyping" as Masashi puts it. shorklocomotive (sl) pays homage to the original, but thematically made for SHORK Operating Systems like [SHORK 486](https://github.com/SharktasticA/SHORK-486), even using SHORK's ASCII art mascot. It also works on modern Linux distributions just fine.
 
@@ -18,7 +18,7 @@ You just need a C compiler (tested with GCC with either glibc or musl).
 
 ### Compilation
 
-Simply run `make` to compile shorklocomotive.
+Simply run `make` to compile.
 
 ### Installation
 
@@ -34,7 +34,8 @@ Simply run `sl`.
 
 ### Arguments
 
-* `-h`, `--help`: Shows help information and exits
+* `-h`, `--help`: Displays help information and exits
 * `-nb`, `--no-bob`: Disables bobbing (moving the shark up and down)
 * `-nc`, `--no-col`: Disables all coloured output
-* `-u`, `--update`: Custom value for update speed (how quick the shark moves) (be must positive whole number)
+* `-u`, `--update`: Custom draw update control value (be must positive whole number)
+* `-v`, `--version`: Displays version number and exits

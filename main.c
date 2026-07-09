@@ -13,6 +13,9 @@
 */
 
 
+static const char *VERSION = "1.0-pt1";
+
+
 
 #include <sys/ioctl.h>
 #include <signal.h>
@@ -268,8 +271,14 @@ void showHelp(void)
     formatNewLines(usage, TERM_SIZE.ws_col, NULL);
     printf("%s", usage);
 
-    char options[350] = "Options:\n-h, --help       Displays help information and exits\n-nb, --no-bob    Disables bobbing (moving the shark up and down)\n-nc, --no-col    Disables all coloured output\n-u, --update     Custom value for update speed (how quick the shark moves) (be must positive whole number)\n\n";
-    formatNewLines(options, TERM_SIZE.ws_col, "                 ");
+    char options[340] = "\
+Options:\n\
+-h, --help     Displays help information and exits\n\
+-nb, --no-bob  Disables bobbing (moving the shark up and down)\n\
+-nc, --no-col  Disables all coloured output\n\
+-u, --update   Custom draw update control value (be must positive whole number)\n\
+-v, --version  Displays version number and exits\n\n";
+    formatNewLines(options, TERM_SIZE.ws_col, "               ");
     printf("%s", options);
 
     char notes[80];
@@ -319,8 +328,12 @@ int main(int argc, char *argv[])
             }
 
             update = (int)val;
-            printf("%d\n", update);
             continue;
+        }
+        else if ((strcmp(argv[i], "-v") == 0) || (strcmp(argv[i], "--version") == 0))
+        {
+            printf("SHORKLOCOMOTIVE %s\n", VERSION);
+            return 0;
         }
     }
 
